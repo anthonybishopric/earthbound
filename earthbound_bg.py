@@ -108,6 +108,18 @@ def gen_checkerboard(palette: list) -> np.ndarray:
     return img
 
 
+def gen_concentric_square(palette: list) -> np.ndarray:
+    img = np.zeros((256, 256, 3), dtype=np.uint8)
+    n = len(palette)
+    cx, cy = 128, 128
+    for y in range(256):
+        for x in range(256):
+            dist = max(abs(x - cx), abs(y - cy))
+            idx = (dist * n // 64) % n
+            img[y, x] = palette[idx]
+    return img
+
+
 def gen_plasma(palette: list) -> np.ndarray:
     img = np.zeros((256, 256, 3), dtype=np.uint8)
     n = len(palette)
@@ -126,6 +138,7 @@ TEXTURE_GENERATORS = {
     "horizontal_stripes": gen_horizontal_stripes,
     "diagonal_stripes": gen_diagonal_stripes,
     "concentric": gen_concentric,
+    "concentric_square": gen_concentric_square,
     "checkerboard": gen_checkerboard,
     "plasma": gen_plasma,
 }
@@ -490,6 +503,98 @@ PRESETS = {
             texture_func="horizontal_stripes",
             scroll_x=-1.0,
             scroll_y=1.0,
+        ),
+    ],
+    "starman": [
+        LayerConfig(
+            effect=DistortionEffect(
+                type=DistortionType.HORIZONTAL_INTERLACED,
+                frequency=800,
+                amplitude=6144,
+                compression=0,
+                frequency_accel=0,
+                amplitude_accel=0,
+                speed=6,
+                compression_accel=0,
+            ),
+            palette=[
+                (0, 0, 0), (20, 0, 40), (50, 0, 90), (90, 0, 150),
+                (140, 0, 200), (180, 30, 255), (220, 80, 255), (255, 140, 255),
+                (220, 80, 255), (180, 30, 255), (140, 0, 200), (90, 0, 150),
+                (50, 0, 90), (20, 0, 40), (0, 0, 0), (10, 0, 20),
+            ],
+            palette_cycle_speed=2,
+            alpha=1.0,
+            texture_func="concentric_square",
+            scroll_x=0.0,
+            scroll_y=0.0,
+        ),
+        LayerConfig(
+            effect=DistortionEffect(
+                type=DistortionType.HORIZONTAL_INTERLACED,
+                frequency=1600,
+                amplitude=3072,
+                compression=0,
+                frequency_accel=0,
+                amplitude_accel=0,
+                speed=10,
+                compression_accel=0,
+            ),
+            palette=[
+                (0, 0, 0), (30, 0, 50), (70, 0, 120), (120, 20, 180),
+                (70, 0, 120), (30, 0, 50), (0, 0, 0), (10, 0, 20),
+            ],
+            palette_cycle_speed=3,
+            alpha=0.4,
+            texture_func="concentric_square",
+            scroll_x=0.0,
+            scroll_y=0.0,
+        ),
+    ],
+    "wave": [
+        LayerConfig(
+            effect=DistortionEffect(
+                type=DistortionType.HORIZONTAL,
+                frequency=600,
+                amplitude=8192,
+                compression=0,
+                frequency_accel=0,
+                amplitude_accel=0,
+                speed=4,
+                compression_accel=0,
+            ),
+            palette=[
+                (0, 0, 30), (0, 10, 60), (10, 30, 100), (20, 50, 140),
+                (30, 70, 180), (50, 100, 210), (70, 130, 230), (100, 160, 255),
+                (70, 130, 230), (50, 100, 210), (30, 70, 180), (20, 50, 140),
+                (10, 30, 100), (0, 10, 60), (0, 0, 30), (0, 0, 10),
+            ],
+            palette_cycle_speed=3,
+            alpha=1.0,
+            texture_func="diagonal_stripes",
+            scroll_x=0.0,
+            scroll_y=0.0,
+        ),
+        LayerConfig(
+            effect=DistortionEffect(
+                type=DistortionType.HORIZONTAL,
+                frequency=1200,
+                amplitude=4096,
+                compression=0,
+                frequency_accel=0,
+                amplitude_accel=0,
+                speed=8,
+                compression_accel=0,
+            ),
+            palette=[
+                (0, 0, 10), (0, 0, 30), (0, 10, 60), (10, 20, 90),
+                (20, 40, 120), (10, 20, 90), (0, 10, 60), (0, 0, 30),
+            ],
+            palette_cycle_speed=3,
+            alpha=0.4,
+            texture_func="horizontal_stripes",
+            scroll_x=0.0,
+            scroll_y=0.0,
         ),
     ],
 }
