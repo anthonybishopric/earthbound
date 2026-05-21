@@ -60,6 +60,8 @@ class LayerConfig:
     palette_cycle_speed: int  # frames between palette shifts (0 = no cycling)
     alpha: float  # blend alpha [0, 1]
     texture_func: str  # name of procedural texture generator
+    scroll_x: float = 0.0  # pixels per frame to scroll horizontally (positive = left)
+    scroll_y: float = 0.0  # pixels per frame to scroll vertically (positive = up)
 
 
 # --- Procedural texture generators ---
@@ -186,6 +188,8 @@ def compute_frame_fast(
     effect: DistortionEffect,
     alpha: float,
     letterbox: int = 0,
+    scroll_x: float = 0.0,
+    scroll_y: float = 0.0,
 ) -> np.ndarray:
     """Vectorized version of compute_frame for performance."""
     t2 = tick * 2
@@ -198,27 +202,29 @@ def compute_frame_fast(
     ys = np.arange(SNES_HEIGHT)
     xs = np.arange(SNES_WIDTH)
 
+    # Background scroll: constant pan over time
+    sx = int(scroll_x * tick) % src_w
+    sy = int(scroll_y * tick) % src_h
+
     raw_offsets = np.round(amplitude * np.sin(frequency * ys + speed)).astype(np.int32)
 
     if effect.type == DistortionType.HORIZONTAL:
-        offset_x = raw_offsets  # shape (H,)
-        src_ys = ys % src_h
+        offset_x = raw_offsets
+        src_ys = (ys + sy) % src_h
     elif effect.type == DistortionType.HORIZONTAL_INTERLACED:
         signs = np.where(ys % 2 == 0, -1, 1)
         offset_x = raw_offsets * signs
-        src_ys = ys % src_h
+        src_ys = (ys + sy) % src_h
     else:  # VERTICAL
         offset_x = np.zeros(SNES_HEIGHT, dtype=np.int32)
-        src_ys = ((raw_offsets + (ys * compression).astype(np.int32)) % src_h).astype(np.int32)
+        src_ys = ((raw_offsets + ((ys + sy) * compression).astype(np.int32)) % src_h).astype(np.int32)
 
-    # Build full coordinate grids
-    # src_x[y, x] = (x + offset_x[y]) % src_w
-    src_x_grid = (xs[np.newaxis, :] + offset_x[:, np.newaxis]) % src_w
+    # src_x[y, x] = (x + offset_x[y] + scroll_x_offset) % src_w
+    src_x_grid = (xs[np.newaxis, :] + offset_x[:, np.newaxis] + sx) % src_w
     src_y_grid = np.broadcast_to(src_ys[:, np.newaxis], (SNES_HEIGHT, SNES_WIDTH))
 
     dst = source[src_y_grid, src_x_grid].astype(np.float64) * alpha
 
-    # Apply letterbox
     if letterbox > 0:
         dst[:letterbox] = 0
         dst[SNES_HEIGHT - letterbox:] = 0
@@ -267,7 +273,7 @@ PRESETS = {
                 compression=0,
                 frequency_accel=0,
                 amplitude_accel=0,
-                speed=1280,
+                speed=1200,
                 compression_accel=0,
             ),
             palette=[
@@ -279,6 +285,8 @@ PRESETS = {
             palette_cycle_speed=2,
             alpha=1.0,
             texture_func="horizontal_stripes",
+            scroll_x=0.0,
+            scroll_y=-1.0,
         ),
         LayerConfig(
             effect=DistortionEffect(
@@ -288,16 +296,18 @@ PRESETS = {
                 compression=0,
                 frequency_accel=0,
                 amplitude_accel=0,
-                speed=1536,
+                speed=1440,
                 compression_accel=0,
             ),
             palette=[
                 (0, 0, 0), (20, 0, 0), (60, 0, 0), (100, 20, 0),
                 (140, 40, 0), (100, 20, 0), (60, 0, 0), (20, 0, 0),
             ],
-            palette_cycle_speed=3,
+            palette_cycle_speed=4,
             alpha=0.5,
             texture_func="plasma",
+            scroll_x=1.0,
+            scroll_y=-1.0,
         ),
     ],
     "ocean": [
@@ -309,7 +319,7 @@ PRESETS = {
                 compression=0,
                 frequency_accel=0,
                 amplitude_accel=0,
-                speed=768,
+                speed=720,
                 compression_accel=0,
             ),
             palette=[
@@ -318,9 +328,11 @@ PRESETS = {
                 (60, 150, 255), (40, 130, 240), (20, 100, 220), (0, 80, 200),
                 (0, 60, 160), (0, 40, 120), (0, 20, 80), (0, 10, 50),
             ],
-            palette_cycle_speed=3,
+            palette_cycle_speed=2,
             alpha=1.0,
             texture_func="horizontal_stripes",
+            scroll_x=1.0,
+            scroll_y=1.0,
         ),
         LayerConfig(
             effect=DistortionEffect(
@@ -330,7 +342,7 @@ PRESETS = {
                 compression=256,
                 frequency_accel=0,
                 amplitude_accel=0,
-                speed=512,
+                speed=480,
                 compression_accel=0,
             ),
             palette=[
@@ -340,6 +352,8 @@ PRESETS = {
             palette_cycle_speed=4,
             alpha=0.4,
             texture_func="concentric",
+            scroll_x=-1.0,
+            scroll_y=1.0,
         ),
     ],
     "cosmic": [
@@ -363,6 +377,8 @@ PRESETS = {
             palette_cycle_speed=2,
             alpha=1.0,
             texture_func="plasma",
+            scroll_x=0.5,
+            scroll_y=0.5,
         ),
         LayerConfig(
             effect=DistortionEffect(
@@ -382,6 +398,8 @@ PRESETS = {
             palette_cycle_speed=1,
             alpha=0.35,
             texture_func="diagonal_stripes",
+            scroll_x=-0.5,
+            scroll_y=0.5,
         ),
     ],
     "acid": [
@@ -405,6 +423,8 @@ PRESETS = {
             palette_cycle_speed=1,
             alpha=1.0,
             texture_func="checkerboard",
+            scroll_x=0.5,
+            scroll_y=0.5,
         ),
         LayerConfig(
             effect=DistortionEffect(
@@ -424,6 +444,8 @@ PRESETS = {
             palette_cycle_speed=2,
             alpha=0.45,
             texture_func="concentric",
+            scroll_x=-0.5,
+            scroll_y=0.5,
         ),
     ],
     "cave": [
@@ -435,17 +457,18 @@ PRESETS = {
                 compression=0,
                 frequency_accel=0,
                 amplitude_accel=0,
-                speed=512,
+                speed=480,
                 compression_accel=0,
             ),
             palette=[
                 (20, 10, 5), (40, 20, 10), (60, 30, 15), (80, 40, 20),
                 (100, 50, 25), (120, 60, 30), (100, 50, 25), (80, 40, 20),
-                (60, 30, 15), (40, 20, 10),
             ],
             palette_cycle_speed=4,
             alpha=1.0,
             texture_func="diagonal_stripes",
+            scroll_x=1.0,
+            scroll_y=1.0,
         ),
         LayerConfig(
             effect=DistortionEffect(
@@ -455,19 +478,72 @@ PRESETS = {
                 compression=0,
                 frequency_accel=0,
                 amplitude_accel=0,
-                speed=384,
+                speed=360,
                 compression_accel=0,
             ),
             palette=[
                 (10, 5, 0), (30, 15, 5), (50, 25, 10), (70, 35, 15),
-                (50, 25, 10), (30, 15, 5),
+                (90, 45, 20), (70, 35, 15), (50, 25, 10), (30, 15, 5),
             ],
-            palette_cycle_speed=5,
+            palette_cycle_speed=4,
             alpha=0.5,
             texture_func="horizontal_stripes",
+            scroll_x=-1.0,
+            scroll_y=1.0,
         ),
     ],
 }
+
+
+def _gcd(a: int, b: int) -> int:
+    while b:
+        a, b = b, a % b
+    return a
+
+
+def _lcm(a: int, b: int) -> int:
+    if a == 0 or b == 0:
+        return 0
+    return abs(a * b) // _gcd(a, b)
+
+
+def compute_loop_frames(preset_name: str) -> int | None:
+    """Compute the number of frames for a perfect loop, or None if impossible."""
+    layers = PRESETS[preset_name]
+
+    for lc in layers:
+        e = lc.effect
+        if e.frequency_accel != 0 or e.amplitude_accel != 0 or e.compression_accel != 0:
+            return None
+
+    period = 1
+    for lc in layers:
+        e = lc.effect
+
+        # Distortion phase period: C3 * speed * T = 2π*k → T = 120k/speed
+        # Smallest integer T: T = 120 / gcd(120, speed)
+        if e.speed != 0:
+            dist_period = 120 // _gcd(120, abs(e.speed))
+            period = _lcm(period, dist_period)
+
+        # Palette cycle period
+        if lc.palette_cycle_speed > 0:
+            pal_period = lc.palette_cycle_speed * len(lc.palette)
+            period = _lcm(period, pal_period)
+
+        # Scroll periods: scroll * T ≡ 0 (mod 256)
+        # T = 256 / scroll, but scroll may be fractional.
+        # Express scroll as a fraction p/q, then T = 256*q/p
+        for scroll in (lc.scroll_x, lc.scroll_y):
+            if scroll == 0:
+                continue
+            from fractions import Fraction
+            frac = Fraction(abs(scroll)).limit_denominator(1000)
+            scroll_period = int(256 * frac.denominator / frac.numerator)
+            if scroll_period > 0:
+                period = _lcm(period, scroll_period)
+
+    return period
 
 
 def generate_frames(preset_name: str, duration: float):
@@ -495,7 +571,8 @@ def generate_frames(preset_name: str, duration: float):
             else:
                 src = base_textures[layer_idx]
 
-            frame_data = compute_frame_fast(src, frame_idx, lc.effect, lc.alpha)
+            frame_data = compute_frame_fast(src, frame_idx, lc.effect, lc.alpha,
+                                            scroll_x=lc.scroll_x, scroll_y=lc.scroll_y)
 
             if layer_idx == 0:
                 composite = frame_data
@@ -583,6 +660,8 @@ def main():
                         help="Duration in seconds (default: 10)")
     parser.add_argument("--output", default=None,
                         help="Output MP4 path (default: <preset>.mp4)")
+    parser.add_argument("--loop", action="store_true",
+                        help="Auto-compute duration for a perfect loop")
     parser.add_argument("--list-presets", action="store_true",
                         help="List available presets and exit")
     args = parser.parse_args()
@@ -590,11 +669,25 @@ def main():
     if args.list_presets:
         print("Available presets:")
         for name in PRESETS:
-            print(f"  {name}")
+            frames = compute_loop_frames(name)
+            if frames:
+                print(f"  {name:10s} (loop: {frames} frames / {frames / FPS:.2f}s)")
+            else:
+                print(f"  {name:10s} (no perfect loop — has acceleration)")
         sys.exit(0)
 
+    duration = args.duration
+    if args.loop:
+        frames = compute_loop_frames(args.preset)
+        if frames is None:
+            print(f"Warning: '{args.preset}' uses acceleration and cannot loop perfectly.")
+            print(f"Using --duration {args.duration}s instead.")
+        else:
+            duration = frames / FPS
+            print(f"Loop point: {frames} frames = {duration:.2f}s")
+
     output = args.output or f"{args.preset}.mp4"
-    render_video(args.preset, args.duration, output)
+    render_video(args.preset, duration, output)
 
 
 if __name__ == "__main__":
